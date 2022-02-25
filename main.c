@@ -143,7 +143,7 @@ void shop(){
         sleep(3);
       }
     }else if (choice==3){
-      exit(0);
+      return;
     }
   }
 }
