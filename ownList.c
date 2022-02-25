@@ -127,7 +127,7 @@ int secretGiftHandle(int length, item *list){
 }
 
 
-action myListHandle(int currentChoice, int length, item *list){
+action myListHandle(int currentChoice, int length, item *list, u_char *itemcount){
   char input;
   showMyList(list, length+1, currentChoice);
   input=ugetchar();
@@ -142,7 +142,7 @@ action myListHandle(int currentChoice, int length, item *list){
   if(input==0x1b){
     currentChoice=0xff;
   }
-  if(currentChoice==length){
+  if(currentChoice>=(*itemcount) && (input=='d' || input=='\n')){
     currentChoice=0xff;
   }
   action a;
@@ -215,9 +215,6 @@ int selectSecondItemMove(int firstItem, int length, item *list){
   if(input==0x1b){
     currentChoice=0xff;
   }
-  if(currentChoice==length){
-    currentChoice=0xff;
-  }
   if(currentChoice==firstItem){
     currentChoice=0xff;
   }
@@ -225,12 +222,16 @@ int selectSecondItemMove(int firstItem, int length, item *list){
 }
 
 
-void removeItem(item *list, u_char *items, int position){
-  for(int x=position; list[x].id!=255 && list[x].quantity!=255; x++){
-    list[x].id=list[x+1].id;
-    list[x].quantity=list[x+1].quantity;
+void removeItem(item *list, u_char *items, int position, int amount){
+  if(amount< list[position].quantity){
+    list[position].quantity-=amount;
+  }else{
+    for(int x=position; list[x].id!=255 && list[x].quantity!=255; x++){
+      list[x].id=list[x+1].id;
+      list[x].quantity=list[x+1].quantity;
+    }
+    (*items)--;
   }
-  (*items)--;
 }
 
 void swapItems(item *list, u_char *items, int item1, int item2){
@@ -249,7 +250,7 @@ void swapItems(item *list, u_char *items, int item1, int item2){
       item2=tmp;
     }
     u_char total=list[item1].quantity+list[item2].quantity;
-    if(list[item1].quantity+list[item2].quantity<=99){
+    if((u_char)(list[item1].quantity+list[item2].quantity)<=99){
       list[item1].quantity+=list[item2].quantity;
       for(int x=item2; list[x].id!=255 && list[x].quantity!=255; x++){
         list[x].id=list[x+1].id;
@@ -264,6 +265,58 @@ void swapItems(item *list, u_char *items, int item1, int item2){
   }
 }
 
+void showDropMenu(item* text, int length, int currentChoice, unsigned int currentQuantity){
+  clrscr();
+  printf("%d", currentChoice);
+  int start=currentChoice>=5 ? currentChoice-5 : 0;
+  int end = (currentChoice+6)<=length ? currentChoice+6 : length;
+  if(start==0){
+    end=MIN(11, length);
+  }
+  if(end==length){
+    start=MAX(length-10, 0);
+  }
+  //printf("%d %d %d", currentChoice, start, end);
+  for(int x=start; x<end; x++){
+    if(x==currentChoice){
+      printf("---------------------------------------------------\n");
+    }else{
+      printf("\n");
+    }
+    printf(" %-30s", itemList[text[x].id]);
+    if(x==currentChoice){
+      printf("| Quantity to drop: %02u |\n", currentQuantity);
+      printf("---------------------------------------------------\n");
+    }else{
+      printf("\n");
+      printf("\n");
+    }
+  }
+  printf("w/s select quantity to drop, Enter remove from list, Esc exit");
+}
+
+int dropMenuHandler(int currentChoice, item *list, int length){
+  char input;
+  unsigned int amount=list[currentChoice].quantity;
+  unsigned int maxamount=amount;
+  showDropMenu(list, length, currentChoice, amount);
+  input=ugetchar();
+  while (input!='\n' && input!=0x1b){
+    if(input=='s'){
+      amount=(amount+1)%(maxamount+1);
+    }else if(input=='w'){
+      amount=(amount-1)%(maxamount+1);
+    }
+    showDropMenu(list, length, currentChoice, amount);
+    input=ugetchar();
+  }
+  if(input==0x1b){
+    amount=0x00;
+  }
+  return amount;
+}
+
+
 
 void myListController(item *list, u_char *items){
   int currentChoice=0;
@@ -275,19 +328,24 @@ void myListController(item *list, u_char *items){
         break;
       }
     }
-    action a = myListHandle(currentChoice, cancelPosition, list);
-    printf("%d %c", a.id, a.input);
+    if((*items)>cancelPosition+1){
+      cancelPosition=(*items)-1;
+    }
+    printf("AAAAAAAAAAAAAAA\n%d", *items);
+    action a = myListHandle(currentChoice, cancelPosition, list, items);
+    //printf("BBBBBBBBBBBBBBBB\n %d %d", a.id, a.input);
     if(a.id==0xff){
       return;
     }
     currentChoice=a.id;
     if(a.input=='d'){
-      removeItem(list, items, a.id);
+      int amount=dropMenuHandler(currentChoice, list, cancelPosition);
+      removeItem(list, items, a.id, amount);
     }
     if(a.input=='m'){
       int firstItemMove=a.id;
       int secondItemMove = selectSecondItemMove(firstItemMove, cancelPosition, list);
-      if (secondItemMove!=0xff){
+      if (list[firstItemMove].id!=0xff && list[secondItemMove].id!=0xff){
         swapItems(list, items, firstItemMove, secondItemMove);
       }
     }
