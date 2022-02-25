@@ -1,17 +1,40 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
 #include "things.h"
-#include <string.h>
+#include "addItems.h"
+#include "ownList.h"
+int giftReceived=0;
 
-typedef struct _item{
-  u_char id;
-  u_char quantity;
-} item;
+char ugetchar(void)
+{
+  static struct termios oldt, newt;
 
+  /*tcgetattr gets the parameters of the current terminal
+  STDIN_FILENO will tell tcgetattr that it should write the settings
+  of stdin to oldt*/
+  tcgetattr( STDIN_FILENO, &oldt);
+  /*now the settings will be copied*/
+  newt = oldt;
+
+  /*ICANON normally takes care that one line at a time will be processed
+  that means it will return if it sees a "\n" or an EOF or an EOL*/
+  newt.c_lflag &= ~(ICANON | ECHO);
+
+  /*Those new settings will be set to STDIN
+  TCSANOW tells tcsetattr to change attributes immediately. */
+  tcsetattr( STDIN_FILENO, TCSANOW, &newt);
+
+  /*This is your part:
+  I choose 'e' to end input. Notice that EOF is also turned off
+  in the non-canonical mode*/
+  char c=getchar();
+
+  /*restore the old settings*/
+  tcsetattr( STDIN_FILENO, TCSANOW, &oldt);
+  return c;
+}
 
 void initialize(void)
 {
+    clrscr();
     setbuf(stdin, NULL);
     setbuf(stdout, NULL);
     setbuf(stderr, NULL);
@@ -35,168 +58,60 @@ int get_int(){
   return input;
 }
 
-void mainMenu(){
-  puts("1. View item list");
-  puts("2. View your list");
-  puts("3. Add an item to your list");
-  puts("4. Remove an item from your list");
-  puts("5. Swap/merge two items from your list");
-  puts("6. Save your list on disk");
-  puts("9. Exit");
-  printf("> ");
-}
-
-void printList(){
-  for(int x=0; x<254; x++){
-    if(x!=0 && x%3==0){
+void showMenu(char** text, int length, int currentChoice){
+  clrscr();
+  puts("Welcome to ptmList, the program to help you keep your shopping lists in order!");
+  for(int x=0; x<length; x++){
+    if(x==currentChoice){
+      printf("------------------\n");
+    }else{
       printf("\n");
     }
-    printf("%03d. %-30s", x, itemList[x]);
-  }
-  printf("\n");
-}
-
-void printMyList(item *list, u_char *items){
-  if(*items==0){
-    puts("There are no items in your list!");
-  }else{
-    for(int x=0; x<*items; x++){
-      if(x!=0 && x%3==0){
-        printf("\n");
-      }
-      printf("%03d. %s x %-20d", x, itemList[list[x].id], list[x].quantity);
-    }
-    printf("\n");
-  }
-}
-
-char *randstring(size_t length) {
-
-    static char charset[] = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-    char *randomString = NULL;
-
-    if (length) {
-        randomString = malloc(sizeof(char) * (length +1));
-
-        if (randomString) {
-            for (int n = 0;n < length;n++) {
-                int key = rand() % (int)(sizeof(charset) -1);
-                randomString[n] = charset[key];
-            }
-
-            randomString[length] = '\0';
-        }
-    }
-
-    return randomString;
-}
-
-void saveList(item *list){
-  char* name=randstring(50);
-  char path[]="./data/";
-  strcat(path, name);
-  printf("%s", path);
-  FILE* f = fopen(path, "w");
-  if(f == NULL)
-   {
-      printf("Error opening file, contact an admin!");
-      exit(1);
-   }
-  for(int x=0; x<51; x++){
-    fprintf(f, "%u;%u;", list[x].id, list[x].quantity);
-  }
-  fclose(f);
-  printf("Your list is available with the code %s\n", name);
-  exit(0);
-}
-
-void buyItem(item *list, u_char *items){
-  if(*items>=50){
-    puts("Your list is full, please remove something before adding a new item, space ain't cheap");
-  }else{
-    printf("What item do you want to add? ");
-    int itemToBuy_unsanitized=get_int();
-    if (itemToBuy_unsanitized<0 || itemToBuy_unsanitized>=255){
-      puts("That does not look like an item we have on catalogue, sorry");
-      return;
-    }
-    u_char itemToBuy=itemToBuy_unsanitized%256;
-    printf("How many %s do you want to buy? ", itemList[itemToBuy]);
-    int quantity_unsanitized=get_int();
-    if (quantity_unsanitized<=0 || quantity_unsanitized>1000){ //Bug inserted for testing!!! reduce 1000 to 100!!!
-      puts("That does not look like a valid number, sorry");
-      return;
-    }
-    u_char quantity=quantity_unsanitized%256;
-    list[*items].id=itemToBuy;
-    list[*items].quantity=quantity;
-    (*items)++;
-  }
-}
-
-void removeItem(item *list, u_char *items){
-  if(*items<=0){
-    puts("There are no items to be removed");
-  }else{
-    printf("What item do you want to remove? ");
-    u_int itemToRemove=get_int();
-    if(itemToRemove>=*items){
-      puts("That item is not in your list");
+    printf("%s\n", text[x]);
+    if(x==currentChoice){
+      printf("------------------\n");
     }else{
-      for(int x=itemToRemove; list[x].id!=255 && list[x].quantity!=255; x++){
-        list[x].id=list[x+1].id;
-        list[x].quantity=list[x+1].quantity;
-      }
-      (*items)--;
+      printf("\n");
     }
   }
 }
 
-void swapItems(item *list, u_char *items){
-  printf("What is the first item you want to swap/merge? ");
-  u_int item1=get_int();
-  if(item1>=*items){
-    puts("That item is not in your list");
-    return;
+int mainMenuDown(int currentChoice){
+  if(currentChoice!=3){
+    currentChoice++;
   }
-  printf("What is the second item you want to swap/merge? ");
-  u_int item2=get_int();
-  if(item2>=*items){
-    puts("That item is not in your list");
-    return;
+  char* options[4]={"| View item list |", "| View your list |", "| Secret gift    |", "| Exit           |"};
+  showMenu(options, 4, currentChoice);
+  return currentChoice;
+}
+
+int mainMenuUp(int currentChoice){
+  if(currentChoice!=0){
+    currentChoice--;
   }
-  if(item2==item1){
-    puts("The two items are the same");
-    return;
-  }
-  if(list[item1].id!=list[item2].id){
-    item tmp;
-    tmp.id=list[item1].id;
-    tmp.quantity=list[item1].quantity;
-    list[item1].id=list[item2].id;
-    list[item1].quantity=list[item2].quantity;
-    list[item2].id=tmp.id;
-    list[item2].quantity=tmp.quantity;
-  }else{
-    if(item1>item2){
-      int tmp=item1;
-      item1=item2;
-      item2=tmp;
+  char* options[4]={"| View item list |", "| View your list |", "| Secret gift    |", "| Exit           |"};
+  showMenu(options, 4, currentChoice);
+  return currentChoice;
+}
+
+int mainMenu(){
+  char input;
+  int currentChoice=0;
+  char* options[4]={"| View item list |", "| View your list |", "| Secret gift    |", "| Exit           |"};
+  showMenu(options, 4, currentChoice);
+  input=ugetchar();
+  while (input!='\n'){
+    if(input=='s'){
+      currentChoice=mainMenuDown(currentChoice);
+    }else if(input=='w'){
+      currentChoice=mainMenuUp(currentChoice);
     }
-    u_char total=list[item1].quantity+list[item2].quantity;
-    if(list[item1].quantity+list[item2].quantity<=99){
-      list[item1].quantity+=list[item2].quantity;
-    }
-    for(int x=item2; list[x].id!=255 && list[x].quantity!=255; x++){
-      list[x].id=list[x+1].id;
-      list[x].quantity=list[x+1].quantity;
-    }
-    (*items)--;
+    input=ugetchar();
   }
+  return currentChoice;
 }
 
 void shop(){
-  puts("Welcome to ptmList, the program to help you keep your shopping lists in order!");
   item ownList[51];
   for(int x=0; x<51; x++){
     ownList[x].id=255;
@@ -204,24 +119,31 @@ void shop(){
   }
   u_char itemsOnList=0;
   while(1==1){
-    mainMenu();
-    int choice = get_int();
-    if (choice==1){
-      printList();
+    int choice = mainMenu();
+    if (choice==0){
+      itemListController(ownList, &itemsOnList);
+    }else if (choice==1){
+      myListController(ownList, &itemsOnList);
     }else if (choice==2){
-      printMyList(ownList, &itemsOnList);
+      if(!giftReceived){
+        int cancelPosition=256;
+        for(int x=0; x<256; x++){
+          if(ownList[x].id==255){
+            cancelPosition=x;
+            break;
+          }
+        }
+        int currentChoice=secretGiftHandle(cancelPosition, ownList);
+        if(currentChoice!=0xff){
+          ownList[currentChoice].quantity=255;
+          giftReceived=1;
+        }
+      }else{
+        printf("You already received the gift.");
+        sleep(3);
+      }
     }else if (choice==3){
-      buyItem(ownList, &itemsOnList);
-    }else if (choice==4){
-      removeItem(ownList, &itemsOnList);
-    }else if (choice==5){
-      swapItems(ownList, &itemsOnList);
-    }else if (choice==6){
-      saveList(ownList);
-    }else if (choice==9){
       exit(0);
-    }else{
-      puts("Unknown option");
     }
   }
 }
