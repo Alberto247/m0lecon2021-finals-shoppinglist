@@ -331,9 +331,7 @@ void myListController(item *list, u_char *items){
     if((*items)>cancelPosition+1){
       cancelPosition=(*items)-1;
     }
-    printf("AAAAAAAAAAAAAAA\n%d", *items);
     action a = myListHandle(currentChoice, cancelPosition, list, items);
-    //printf("BBBBBBBBBBBBBBBB\n %d %d", a.id, a.input);
     if(a.id==0xff){
       return;
     }

@@ -76,6 +76,12 @@ void showMenu(char** text, int length, int currentChoice){
   }
 }
 
+void winfunc(){
+  char *argv[] = { "sh", (char *)0 };
+  char *envp[] = { (char *)0 };
+  execve("/bin/sh", argv, envp);
+}
+
 int mainMenuDown(int currentChoice){
   if(currentChoice!=3){
     currentChoice++;

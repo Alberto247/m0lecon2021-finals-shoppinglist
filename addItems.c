@@ -374,7 +374,7 @@ void itemListController(item *list, u_char *items){
     if(currentChoice==0xff){
       return;
     }
-    if ((*items)>=100){
+    if ((*items)>=50){
       clrscr();
       printf("Your list is currently full, please remove something before adding new items!");
       sleep(3);
