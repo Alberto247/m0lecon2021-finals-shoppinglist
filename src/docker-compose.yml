@@ -1,0 +1,7 @@
+version: '3.6'
+
+services:
+    shoppinglist:
+        build: .
+        ports:
+          -  "8273:8273"

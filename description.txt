@@ -1,0 +1,2 @@
+VHDL is for noobs, I implement all my tests in C, it is faster, easier, and more resistant to attacks!
+<code> stty -icanon && socat - tcp:54.216.53.144:8273 && stty icanon </code>
